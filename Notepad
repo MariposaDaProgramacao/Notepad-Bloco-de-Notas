@@ -1,0 +1,30 @@
+package com.mycompany.notepad;
+import javax.swing.*; //Importa classes do pacote java swing(interface grafica), o "*" é para pegar todas as bibliotecas
+
+/**
+ *
+ * @author 1059121
+ */
+public class Notepad {
+
+    public static void main(String[] args) {
+       //Metodo Java garante a interface gráfica utilizando "Extressão Lambda" (->) que simplica uma execução (Runnable)
+       SwingUtilities.invokeLater(()->{
+           //Estrutura de tentativa de aparencia gráfica baseada bo sistema
+           try {
+               //Metodo Java que define a interface com base no sistema "UIManager"
+               UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+           } catch (Exception e) {
+               //Coloca no console do sistema o erro que ocorreu
+               e.printStackTrace();
+           }
+       
+       });
+       
+       
+       //Aqui ocorre a instanciação da parte grafica (vem do arquivo NotepadFrame)
+       new NotepadFrame();
+       
+    }
+}
+ 
