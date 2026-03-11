@@ -1,0 +1,116 @@
+package com.mycompany.notepad;
+import java.io.*;//Pacote para manipulação de arquivos(reader,writer,file,exceptions)
+import javax.swing.JOptionPane;//Mostra mensagens de erro ao usuario
+import javax.swing.JFileChooser;//Para abrir a janela de salvar/como
+import javax.swing.filechooser.FileNameExtensionFilter;//Filtrar tipos de arquivo
+
+public class FileManager {
+    //Gerenciador de arquivos,Back And do Notepad, esta classe manipula toda a logica de manipulação de arquivos
+    //FilePath é o caminho completo do arquivo a ser lido, o metodo e assinado
+    //Retorna String com o conteudo do arquivo ou "null" em caso de erro
+    
+   public String openFile(String filePath){
+       //Abrir Ler o arquivo
+       //Metodo própio que abre e lê o contedudo do arquivo selecionado
+       //Modificador public possibilita ser usado por outra classe/arquivo
+       //"StringBuilder" ajuda na construção de strings de forma eficiente
+       StringBuilder content =new StringBuilder();
+       
+       //Abaixo usamos um try-catch para tentar abrir o arquivo e retorna o erro se necessario
+       try (BufferedReader reader = new BufferedReader( new FileReader(filePath))) {
+           //Armazena cada linha do arquivo
+           String line;
+           
+           //Repetição While que lê linha por linha até o final do arquivo
+           while((line = reader.readLine()) !=null ){
+               //StringBuilder adiciona o conteudo de cada linha + quebra
+               content.append(line).append("\n");
+           }
+           //Retorna o conteudo completo como String
+           return content.toString();
+           
+       } catch (FileNotFoundException e) {
+           //Mensagem de erro ao usuario informando não encontrar o arquivo 
+           JOptionPane.showMessageDialog(null,"❌ Arquivo não encontrado❌:"+filePath,"❌Erro❌",JOptionPane.ERROR_MESSAGE);
+       }catch(IOException e){
+            //Mensagem de erro ao usuario informando não permissão ao arquivo
+           JOptionPane.showMessageDialog(null,"❌ Erro ao ler o arquivo❌:"+e.getLocalizedMessage(),"❌Erro❌",JOptionPane.ERROR_MESSAGE);
+       }
+       
+       return null;//Caso ocorra outra erro qualquer ele não faz nada 
+   }
+   
+   //Salva o conteudo de um arquivo e verifica se houve sucesso em fazer isso
+   public boolean saveFile(String filePath, String content){
+       try (BufferedWriter writer = new BufferedWriter(new FileWriter(filePath))) {
+           writer.write(content);
+           writer.flush(); //Garante que todos os dados foram escritos
+           return true; //Retorna true indicando sucesso
+       } catch (IOException e) {
+           //Mensagem de erro ao usuario
+           JOptionPane.showMessageDialog(null, 
+               "❌ Erro ao salvar o arquivo ❌\n" + e.getLocalizedMessage(), 
+               "❌ Erro ❌", 
+               JOptionPane.ERROR_MESSAGE);
+           return false; //Retorna false indicando falha
+       }
+   }
+   
+   //Verifica se o arquivo ja existe
+   public boolean fileExists(String filePath){
+       if (filePath == null || filePath.isEmpty()) {
+           return false;
+       }
+       File file = new File(filePath);
+       return file.exists() && !file.isDirectory();
+   }
+   
+   //Método auxiliar para mostrar o diálogo "Salvar Como"
+   public String showSaveDialog(String suggestedName) {
+       JFileChooser fileChooser = new JFileChooser();
+       
+       //Filtro para mostrar apenas arquivos .txt
+       FileNameExtensionFilter filter = new FileNameExtensionFilter(
+           "Arquivos de Texto (*.txt)", "txt");
+       fileChooser.setFileFilter(filter);
+       
+       //Sugere um nome padrão
+       if (suggestedName != null && !suggestedName.isEmpty()) {
+           fileChooser.setSelectedFile(new File(suggestedName));
+       }
+       
+       int result = fileChooser.showSaveDialog(null);
+       
+       if (result == JFileChooser.APPROVE_OPTION) {
+           File selectedFile = fileChooser.getSelectedFile();
+           String filePath = selectedFile.getAbsolutePath();
+           
+           //Adiciona extensão .txt se não tiver
+           if (!filePath.toLowerCase().endsWith(".txt")) {
+               filePath += ".txt";
+           }
+           
+           return filePath;
+       }
+       
+       return null; //Usuário cancelou
+   }
+   
+   //Método auxiliar para mostrar o diálogo "Abrir"
+   public String showOpenDialog() {
+       JFileChooser fileChooser = new JFileChooser();
+       
+       //Filtro para mostrar apenas arquivos .txt
+       FileNameExtensionFilter filter = new FileNameExtensionFilter(
+           "Arquivos de Texto (*.txt)", "txt");
+       fileChooser.setFileFilter(filter);
+       
+       int result = fileChooser.showOpenDialog(null);
+       
+       if (result == JFileChooser.APPROVE_OPTION) {
+           return fileChooser.getSelectedFile().getAbsolutePath();
+       }
+       
+       return null; //Usuário cancelou
+   }
+}
