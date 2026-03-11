@@ -1,0 +1,678 @@
+package com.mycompany.notepad;
+import javax.swing.*;//Pacote grafico(botões, janelas "JFrame" etc)
+import java.awt.*;//Pacote de layout e fontes (font toolkits)
+import java.io.File;
+import java.awt.event.*;
+
+public class NotepadFrame extends JFrame {
+    //Interface Grafica do Notepad
+    
+    //==========================================================================
+    //Atributos da Classe
+    //==========================================================================
+    
+    //Componente de texto multi-linhas do swing(Area de digitação)
+    private JTextArea textArea;
+    //Responsavel por operações de arquivo "Ler/Salvar"
+    private FileManager fileManager;
+    //Componente para seleção de arquivos
+    private JFileChooser fileChooser;
+    //Armazena o caminho do arquivo(onde ele está salvo)
+    private String currentFile;
+    //Flag para controlar se houveram modificações não salvas
+    private boolean isModified;
+    
+    // Novos atributos para melhorias visuais
+    // Rótulo que vai mostrar informações na barra inferior (linhas, caracteres e palavras)
+private JLabel statusLabel;
+
+// Painel que vai conter a barra de busca (campo de texto e botões)
+private JPanel searchPanel;
+
+// Controle para saber se a barra de busca está visível ou escondida
+private boolean searchVisible = false;
+
+// Tamanho atual da fonte (começa em 18, pode aumentar/diminuir com zoom)
+private int fontSize = 18;
+
+// Controle do tema: false = tema claro, true = tema escuro
+private boolean isDarkMode = false;
+
+// CORES DO TEMA CLARO
+// Cor de fundo do tema claro (branco)
+private Color lightBg = new Color(250, 237, 205);
+// Cor do texto do tema claro (preto)
+private Color lightText = new Color(67, 40, 24);
+
+// CORES DO TEMA ESCURO
+// Cor de fundo do tema escuro (cinza escuro)
+private Color darkBg = new Color(212, 163, 115);
+// Cor do texto do tema escuro (cinza claro)
+private Color darkText = new Color(254, 250, 224);
+
+// Cor de destaque para possíveis elementos decorativos (azul suave)
+private Color accentColor = new Color(187, 148, 87);
+    
+    //Método construtor da classe herdeira-inicizlia a janela principal
+    public NotepadFrame(){
+        //Solução: Forçar o look and feel antes de criar qualquer componente
+        try{
+            //Tenta usar o look and Feel no sistema(Windows)
+            UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+        }catch(Exception e){
+            try{
+                //Se falhar usa o cross-plataform
+                UIManager.setLookAndFeel(UIManager.getCrossPlatformLookAndFeelClassName());
+            }catch(Exception ex){
+                //Se tudo falhar, continua com o padrão
+                System.err.println("Erro ao configurar Look and Feel:"+ex.getMessage());
+            }
+        }
+        
+        //Instanciação-criando objetos com "new"
+            //Cria gerenciador de arquivos
+            this.fileManager=new FileManager();
+            //Cria o seletor de arquivos
+            this.fileChooser=new JFileChooser();
+            //Nenhum arquivo aberto ainda
+            this.currentFile=null;
+            //Nenhuma modificação ainda
+            this.isModified = false;
+            
+            //Chamada dos métodos de inicialização de tela em geral
+                //Configuras as propiedades da janela
+                initializeFrame();
+                //Cria e configura componentes
+                initializeComponents();
+                //Cria a barra de menus
+                initializeMenu();
+                //Configura listeners para detectar modificações
+                setupTextListener();
+                //Configura a barra de ferramentas
+                initializeToolbar();
+                //Configura a barra de status
+                initializeStatusBar();
+                //Configura a busca
+                setupSearch();
+                //Configura o zoom
+                setupZoom();
+                //Torna a janela visível
+                setVisible(true);
+    }
+
+    //Configura a janela principal-so pode ser chamada nessa classe
+    private void initializeFrame(){
+        //Define o título da janela
+        setTitle("Para organizar pensamentos 🧠 - Novo Arquivo");
+        //LarguraxAltura em pixels
+        setSize(800,600);
+        //Define um ícone para a janela (opcional)
+        //setIconImage(Toolkit.getDefaultToolkit().getImage(getClass().getResource("/icon.png")));
+        //Fecha o app clicando em "x" com verificação
+        setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+        addWindowListener(new java.awt.event.WindowAdapter() {
+            @Override
+            public void windowClosing(java.awt.event.WindowEvent e) {
+                exitApplication();
+            }
+        });
+        //Centraliza a janela com base na tela do monitor
+        setLocationRelativeTo(null);
+    }
+    
+    //Método próprio de edição/criação do texto com scroll(rolagem de tela)
+    private void initializeComponents(){
+        //Criando a area de texto
+            //Instanciando do java "area do texto"
+            textArea=new JTextArea();
+            //Tipo da fonte da area de texto
+            textArea.setFont(new Font("Noto color emote", Font.PLAIN, fontSize));
+            //Ativa a quebra de linha
+            textArea.setLineWrap(true);
+            textArea.setWrapStyleWord(true);
+            //Define a cor de fundo e texto
+            textArea.setBackground(lightBg);
+            textArea.setForeground(lightText);
+            textArea.setCaretColor(lightText);
+            //Instancia a barra de rolagem
+            JScrollPane scrollPane=new JScrollPane(textArea);
+            //Abaixo criamos a politica de barra de rolagem vertical
+            scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
+            //Adiciona uma borda elegante
+            scrollPane.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
+            //Abaixo agregamos a barra de rolagem a tela
+            add(scrollPane,BorderLayout.CENTER);
+    }
+    
+    //Método para detectar modificações no texto
+    private void setupTextListener() {
+        textArea.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+            public void insertUpdate(javax.swing.event.DocumentEvent e) {
+                isModified = true;
+                updateTitle();
+                updateStatus();
+            }
+            public void removeUpdate(javax.swing.event.DocumentEvent e) {
+                isModified = true;
+                updateTitle();
+                updateStatus();
+            }
+            public void changedUpdate(javax.swing.event.DocumentEvent e) {
+                isModified = true;
+                updateTitle();
+                updateStatus();
+            }
+        });
+    }
+    
+    //Método para atualizar o título da janela
+    private void updateTitle() {
+        String fileName;
+        if (currentFile != null) {
+            fileName = new File(currentFile).getName();
+        } else {
+            fileName = "Novo Arquivo";
+        }
+        
+        if (isModified) {
+            setTitle("Para organizar pensamentos 🧠 - " + fileName + " *");
+        } else {
+            setTitle("Para organizar pensamentos 🧠 - " + fileName);
+        }
+    }
+    
+    //=============== NOVOS MÉTODOS PARA MELHORIAS VISUAIS ===============
+    
+    //Método para criar botões da toolbar
+    private JButton createToolbarButton(String icon, String tooltip, ActionListener action) {
+        JButton button = new JButton(icon);
+        button.setToolTipText(tooltip);
+        button.setFont(new Font("Noto color emote", Font.PLAIN, 18));
+        button.setFocusPainted(false);
+        button.setBorderPainted(false);
+        button.setBackground(new Color(240, 240, 240));
+        button.setPreferredSize(new Dimension(40, 35));
+        button.addActionListener(action);
+        
+        // Efeito hover
+        button.addMouseListener(new MouseAdapter() {
+            public void mouseEntered(MouseEvent evt) {
+                button.setBackground(new Color(220, 220, 220));
+            }
+            public void mouseExited(MouseEvent evt) {
+                button.setBackground(new Color(240, 240, 240));
+            }
+        });
+        
+        return button;
+    }
+    
+    //Método para inicializar a barra de ferramentas
+    private void initializeToolbar() {
+        JToolBar toolBar = new JToolBar();
+        toolBar.setFloatable(false);
+        toolBar.setBackground(new Color(240, 240, 240));
+        toolBar.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, Color.LIGHT_GRAY));
+        
+        // Botões com ícones
+        JButton newBtn = createToolbarButton("📁", "Novo (Ctrl+N)", e -> newFile());
+        JButton openBtn = createToolbarButton("🗂️", "Abrir (Ctrl+O)", e -> openFile());
+        JButton saveBtn = createToolbarButton("📂", "Salvar (Ctrl+S)", e -> saveFile());
+        JButton saveAsBtn = createToolbarButton("🆗", "Salvar Como (Ctrl+Shift+S)", e -> saveAsFile());
+        
+        toolBar.add(newBtn);
+        toolBar.add(openBtn);
+        toolBar.add(saveBtn);
+        toolBar.add(saveAsBtn);
+        
+        toolBar.addSeparator(new Dimension(10, 35));
+        
+        // Botões de edição
+        JButton cutBtn = createToolbarButton("✂️", "Recortar (Ctrl+X)", e -> textArea.cut());
+        JButton copyBtn = createToolbarButton("🖨️", "Copiar (Ctrl+C)", e -> textArea.copy());
+        JButton pasteBtn = createToolbarButton("«", "Colar (Ctrl+V)", e -> textArea.paste());
+        
+        toolBar.add(cutBtn);
+        toolBar.add(copyBtn);
+        toolBar.add(pasteBtn);
+        
+        toolBar.addSeparator(new Dimension(10, 35));
+        
+        // Botões de zoom
+        JButton zoomInBtn = createToolbarButton("🔍+", "Aumentar Zoom (Ctrl+)", e -> zoomIn());
+        JButton zoomOutBtn = createToolbarButton("🔍-", "Diminuir Zoom (Ctrl-)", e -> zoomOut());
+        JButton zoomResetBtn = createToolbarButton("🔍x", "Resetar Zoom (Ctrl+0)", e -> zoomReset());
+        
+        toolBar.add(zoomInBtn);
+        toolBar.add(zoomOutBtn);
+        toolBar.add(zoomResetBtn);
+        
+        toolBar.addSeparator(new Dimension(10, 35));
+        
+        // Botão de busca
+        JButton searchBtn = createToolbarButton("🔎", "Buscar (Ctrl+F)", e -> toggleSearch());
+        toolBar.add(searchBtn);
+        
+        // Botão de tema
+        JButton themeBtn = createToolbarButton("🌙", "Alternar Tema", e -> toggleTheme());
+        toolBar.add(themeBtn);
+        
+        add(toolBar, BorderLayout.NORTH);
+    }
+    
+    //Métodos de zoom
+    private void zoomIn() {
+        fontSize = Math.min(48, fontSize + 2);
+        textArea.setFont(new Font("Noto color emote", Font.PLAIN, fontSize));
+    }
+    
+    private void zoomOut() {
+        fontSize = Math.max(8, fontSize - 2);
+        textArea.setFont(new Font("Noto color emote", Font.PLAIN, fontSize));
+    }
+    
+    private void zoomReset() {
+        fontSize = 18;
+        textArea.setFont(new Font("Noto color emote", Font.PLAIN, fontSize));
+    }
+    
+    //Método para configurar atalhos de zoom
+    private void setupZoom() {
+        // Atalhos de zoom
+        getRootPane().getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW)
+            .put(KeyStroke.getKeyStroke(KeyEvent.VK_PLUS, KeyEvent.CTRL_DOWN_MASK), "zoomIn");
+        getRootPane().getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW)
+            .put(KeyStroke.getKeyStroke(KeyEvent.VK_EQUALS, KeyEvent.CTRL_DOWN_MASK), "zoomIn");
+        getRootPane().getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW)
+            .put(KeyStroke.getKeyStroke(KeyEvent.VK_MINUS, KeyEvent.CTRL_DOWN_MASK), "zoomOut");
+        getRootPane().getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW)
+            .put(KeyStroke.getKeyStroke(KeyEvent.VK_0, KeyEvent.CTRL_DOWN_MASK), "zoomReset");
+        
+        getRootPane().getActionMap().put("zoomIn", new AbstractAction() {
+            public void actionPerformed(ActionEvent e) {
+                zoomIn();
+            }
+        });
+        
+        getRootPane().getActionMap().put("zoomOut", new AbstractAction() {
+            public void actionPerformed(ActionEvent e) {
+                zoomOut();
+            }
+        });
+        
+        getRootPane().getActionMap().put("zoomReset", new AbstractAction() {
+            public void actionPerformed(ActionEvent e) {
+                zoomReset();
+            }
+        });
+    }
+    
+    //Método para inicializar a barra de status
+    private void initializeStatusBar() {
+        JPanel statusBar = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        statusBar.setBackground(new Color(240, 240, 240));
+        statusBar.setBorder(BorderFactory.createEtchedBorder());
+        
+        statusLabel = new JLabel("Linhas: 0 | Caracteres: 0 | Palavras: 0");
+        statusLabel.setFont(new Font("Noto color emote", Font.PLAIN, 12));
+        statusBar.add(statusLabel);
+        
+        add(statusBar, BorderLayout.SOUTH);
+    }
+    
+    //Método para atualizar a barra de status
+    private void updateStatus() {
+        String text = textArea.getText();
+        int lines = textArea.getLineCount();
+        int chars = text.length();
+        int words = text.trim().isEmpty() ? 0 : text.trim().split("\\s+").length;
+        
+        statusLabel.setText(String.format("Linhas: %d | Caracteres: %d | Palavras: %d", lines, chars, words));
+    }
+    
+    //Método para configurar o painel de busca
+    private void setupSearch() {
+        searchPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        searchPanel.setBackground(new Color(240, 240, 240));
+        searchPanel.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, Color.LIGHT_GRAY));
+        searchPanel.setVisible(false);
+        
+        JTextField searchField = new JTextField(20);
+        JButton findBtn = new JButton("🔍 Buscar");
+        JButton closeBtn = new JButton("✖");
+        
+        // Estilizando botões
+        findBtn.setFocusPainted(false);
+        closeBtn.setFocusPainted(false);
+        closeBtn.setBorderPainted(false);
+        closeBtn.setBackground(new Color(240, 240, 240));
+        
+        findBtn.addActionListener(e -> {
+            String searchText = searchField.getText();
+            if (!searchText.isEmpty()) {
+                String content = textArea.getText();
+                int index = content.indexOf(searchText, textArea.getCaretPosition());
+                if (index >= 0) {
+                    textArea.setCaretPosition(index);
+                    textArea.select(index, index + searchText.length());
+                    textArea.requestFocus();
+                } else {
+                    // Se não encontrar a partir da posição atual, começa do início
+                    index = content.indexOf(searchText);
+                    if (index >= 0) {
+                        textArea.setCaretPosition(index);
+                        textArea.select(index, index + searchText.length());
+                        textArea.requestFocus();
+                        JOptionPane.showMessageDialog(this, "Iniciando busca do início do documento.");
+                    } else {
+                        JOptionPane.showMessageDialog(this, "Texto não encontrado!");
+                    }
+                }
+            }
+        });
+        
+        closeBtn.addActionListener(e -> toggleSearch());
+        
+        // Buscar ao pressionar Enter
+        searchField.addActionListener(findBtn.getActionListeners()[0]);
+        
+        searchPanel.add(new JLabel("Buscar: "));
+        searchPanel.add(searchField);
+        searchPanel.add(findBtn);
+        searchPanel.add(closeBtn);
+        
+        add(searchPanel, BorderLayout.NORTH);
+        
+        // Atalho Ctrl+F
+        getRootPane().getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW)
+            .put(KeyStroke.getKeyStroke(KeyEvent.VK_F, KeyEvent.CTRL_DOWN_MASK), "toggleSearch");
+        getRootPane().getActionMap().put("toggleSearch", new AbstractAction() {
+            public void actionPerformed(ActionEvent e) {
+                toggleSearch();
+            }
+        });
+    }
+    
+    //Método para alternar visibilidade da busca
+    private void toggleSearch() {
+        searchVisible = !searchVisible;
+        searchPanel.setVisible(searchVisible);
+        if (searchVisible) {
+            searchPanel.getComponent(1).requestFocus(); // Foca no campo de busca
+        }
+    }
+    
+    //Método para alternar tema dark/light
+    private void toggleTheme() {
+        isDarkMode = !isDarkMode;
+        
+        if (isDarkMode) {
+            textArea.setBackground(darkBg);
+            textArea.setForeground(darkText);
+            textArea.setCaretColor(darkText);
+            getContentPane().setBackground(darkBg);
+        } else {
+            textArea.setBackground(lightBg);
+            textArea.setForeground(lightText);
+            textArea.setCaretColor(lightText);
+            getContentPane().setBackground(lightBg);
+        }
+    }
+    
+    //Método para inicializar o menu "Exibir" - AGORA RETORNA O MENU
+    private JMenu initializeViewMenu() {
+        JMenu viewMenu = new JMenu("Exibir");
+        
+        // Quebra de linha
+        JCheckBoxMenuItem wordWrapItem = new JCheckBoxMenuItem("Quebra de Linha", true);
+        wordWrapItem.addActionListener(e -> {
+            textArea.setLineWrap(wordWrapItem.isSelected());
+            textArea.setWrapStyleWord(wordWrapItem.isSelected());
+        });
+        
+        // Zoom
+        JMenuItem zoomInItem = new JMenuItem("Aumentar Zoom (Ctrl +)");
+        JMenuItem zoomOutItem = new JMenuItem("Diminuir Zoom (Ctrl -)");
+        JMenuItem zoomResetItem = new JMenuItem("Resetar Zoom (Ctrl 0)");
+        
+        zoomInItem.addActionListener(e -> zoomIn());
+        zoomOutItem.addActionListener(e -> zoomOut());
+        zoomResetItem.addActionListener(e -> zoomReset());
+        
+        // Tema
+        JMenuItem themeItem = new JMenuItem("Alternar Tema");
+        themeItem.addActionListener(e -> toggleTheme());
+        
+        viewMenu.add(wordWrapItem);
+        viewMenu.addSeparator();
+        viewMenu.add(zoomInItem);
+        viewMenu.add(zoomOutItem);
+        viewMenu.add(zoomResetItem);
+        viewMenu.addSeparator();
+        viewMenu.add(themeItem);
+        
+        return viewMenu; // RETORNA o menu criado
+    }
+    
+    //=============== FIM DOS NOVOS MÉTODOS ===============
+    
+    //Método próprio -cria todo o sistema de menus(menubar) - CORRIGIDO
+    private void initializeMenu(){
+        //Barrade menus (topo da janela)
+        JMenuBar menuBar = new JMenuBar();
+        
+        //Menu arquivo (espécie de botão)
+        JMenu fileMenu = new JMenu("Arquivo");
+        //Itens do menu arquivo "JMenuItem" cada opção clicável
+        JMenuItem newItem = new JMenuItem("Novo");
+        JMenuItem openItem = new JMenuItem("Abrir");
+        JMenuItem saveItem = new JMenuItem("Salvar");
+        JMenuItem saveAsItem = new JMenuItem("Salvar como");
+        JMenuItem exitItem = new JMenuItem("Sair");
+
+        //Aqui criamos o tratamento de ações "listener" usando "lambda ->"
+            //Botão "novo" chama o método newFile()
+            newItem.addActionListener(e -> newFile());
+            //Botão "Abrir" chama o método openFile()
+            openItem.addActionListener(e -> openFile());
+            //Botão "Salvar" chama o método saveFile()
+            saveItem.addActionListener(e -> saveFile());
+            //Botão "Salvar como" chama o método saveAsFile()
+            saveAsItem.addActionListener(e -> saveAsFile());
+            //Botão "Sair" chama o método exitApplication()
+            exitItem.addActionListener(e -> exitApplication());
+
+            //Adiciona atalhos de teclado
+            newItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_N, KeyEvent.CTRL_DOWN_MASK));
+            openItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_O, KeyEvent.CTRL_DOWN_MASK));
+            saveItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_S, KeyEvent.CTRL_DOWN_MASK));
+            saveAsItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_S, KeyEvent.CTRL_DOWN_MASK | KeyEvent.SHIFT_DOWN_MASK));
+
+            //Adiciona o botão "Novo" ao botão "Arquivo"
+            fileMenu.add(newItem);
+            //Adiciona o botão "Abrir" ao botão "Arquivo"
+            fileMenu.add(openItem);
+            //Adiciona o botão "Salvar" ao botão "Arquivo"
+            fileMenu.add(saveItem);
+            //Adiciona o botão "Salvar como" ao botão "Arquivo"
+            fileMenu.add(saveAsItem);
+
+            fileMenu.addSeparator();
+            //Adiciona o botão "Sair" ao botão "Arquivo"
+            fileMenu.add(exitItem);
+
+    //===========BOTÃO "ARQUIVO" CÓDIGO ACIMA ========================
+    //===========BOTÃO "EDITAR" CÓDIGO ABAIXO ========================
+
+        JMenu editMenu = new JMenu("Editar");
+        //Itens do menu editar
+        JMenuItem cutItem = new JMenuItem("Recortar");
+        JMenuItem copyItem = new JMenuItem("Copiar");
+        JMenuItem pasteItem = new JMenuItem("Colar");
+        JMenuItem selectAllItem = new JMenuItem("Selecionar tudo");
+
+        //Ações
+        cutItem.addActionListener(e -> textArea.cut());
+        copyItem.addActionListener(e -> textArea.copy());
+        pasteItem.addActionListener(e -> textArea.paste());
+        selectAllItem.addActionListener(e -> textArea.selectAll());
+
+        //Atalhos
+        cutItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_X, KeyEvent.CTRL_DOWN_MASK));
+        copyItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_C, KeyEvent.CTRL_DOWN_MASK));
+        pasteItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_V, KeyEvent.CTRL_DOWN_MASK));
+        selectAllItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_A, KeyEvent.CTRL_DOWN_MASK));
+
+        editMenu.add(cutItem);
+        editMenu.add(copyItem);
+        editMenu.add(pasteItem);
+        editMenu.addSeparator();
+        editMenu.add(selectAllItem);
+
+    //==============FIM DO BOTÃO EDITAR ========================
+    //==============MENU EXIBIR (CHAMANDO O MÉTODO) ============
+
+        // Chama o método que cria e RETORNA o menu "Exibir"
+        JMenu viewMenu = initializeViewMenu();
+
+    //==============BOTÃO SOBRE ================================
+
+        //Botão "Sobre"
+        JMenu aboutMenu = new JMenu("Sobre");
+        JMenuItem aboutItem = new JMenuItem("Versão");
+        aboutItem.addActionListener(e -> showMessageDialog());
+        aboutMenu.add(aboutItem);
+
+        //Construção final da barra de menus
+        menuBar.add(fileMenu);
+        menuBar.add(editMenu);
+        menuBar.add(viewMenu); // AGORA viewMenu EXISTE E FUNCIONA!
+        menuBar.add(aboutMenu);
+        
+        setJMenuBar(menuBar);  
+    }
+    
+    //Método próprio - Cria novo arquivo/verifica alterações não salvas
+    private void newFile(){
+        int result = checkUnsavedChanges();
+        if (result != JOptionPane.CANCEL_OPTION) {
+            textArea.setText("");
+            currentFile = null;
+            isModified = false;
+            updateTitle();
+            updateStatus();
+        }
+    }
+    
+    //Método próprio - Abre arquivos existentes
+    private void openFile(){
+        //Verifica se há alterações não salvas antes de abrir outro documento
+        int result = checkUnsavedChanges();
+        if(result != JOptionPane.CANCEL_OPTION){
+            //Abre a janela de seleção de arquivo
+            int returnValue = fileChooser.showOpenDialog(this);
+            if(returnValue == JFileChooser.APPROVE_OPTION){
+                String selectedFile = fileChooser.getSelectedFile().getAbsolutePath();
+                
+                String content = fileManager.openFile(selectedFile);
+                if(content != null){
+                    textArea.setText(content);
+                    currentFile = selectedFile;
+                    isModified = false;
+                    updateTitle();
+                    updateStatus();
+                }
+            }
+        }
+    }
+    
+    //Método próprio - Salva o arquivo atual
+    private void saveFile(){
+        if (currentFile == null) {
+            saveAsFile();
+        } else {
+            boolean success = fileManager.saveFile(currentFile, textArea.getText());
+            if (success) {
+                isModified = false;
+                updateTitle();
+                JOptionPane.showMessageDialog(this,
+                    "Arquivo salvo com sucesso!",
+                    "Sucesso",
+                    JOptionPane.INFORMATION_MESSAGE);
+            }
+        }
+    }
+    
+    //Método próprio - Salva com um novo nome/local
+    private void saveAsFile(){
+        if (currentFile != null) {
+            fileChooser.setSelectedFile(new File(currentFile));
+        } else {
+            fileChooser.setSelectedFile(new File("novo_arquivo.txt"));
+        }
+        
+        int returnValue = fileChooser.showSaveDialog(this);
+        
+        if (returnValue == JFileChooser.APPROVE_OPTION) {
+            String selectedFile = fileChooser.getSelectedFile().getAbsolutePath();
+            
+            if (!selectedFile.toLowerCase().endsWith(".txt")) {
+                selectedFile += ".txt";
+            }
+            
+            if (fileManager.fileExists(selectedFile)) {
+                int confirm = JOptionPane.showConfirmDialog(this,
+                    "O arquivo já existe. Deseja sobrescrevê-lo?",
+                    "Confirmar substituição",
+                    JOptionPane.YES_NO_OPTION);
+                    
+                if (confirm != JOptionPane.YES_OPTION) {
+                    return;
+                }
+            }
+            
+            boolean success = fileManager.saveFile(selectedFile, textArea.getText());
+            if (success) {
+                currentFile = selectedFile;
+                isModified = false;
+                updateTitle();
+                JOptionPane.showMessageDialog(this,
+                    "Arquivo salvo com sucesso!",
+                    "Sucesso",
+                    JOptionPane.INFORMATION_MESSAGE);
+            }
+        }
+    }
+    
+    //Método próprio - Verifica se há alterações não salvas
+    private int checkUnsavedChanges(){
+        if (isModified){
+            int result = JOptionPane.showConfirmDialog(this,
+                "Deseja salvar as alterações?",
+                "Arquivo não salvo",
+                JOptionPane.YES_NO_CANCEL_OPTION);
+            
+            if(result == JOptionPane.YES_OPTION){
+                saveFile();
+            }
+            return result;
+        }
+        return JOptionPane.NO_OPTION;
+    }
+    
+    //Método próprio - Fecha a aplicação com verificação
+    private void exitApplication() {
+        int result = checkUnsavedChanges();
+        if (result != JOptionPane.CANCEL_OPTION) {
+            System.exit(0);
+        }
+    }
+    
+    //Método próprio - Exibe uma janela com informações sobre o software
+    private void showMessageDialog(){
+        JOptionPane.showMessageDialog(this,
+        "Bloco de notas simples \n Versão 2.0 \n Desenvolvido com Java Swing \n Desenvolvido pela Shaya 'Mariposa da Programação',🦋\n\n✨ NOVAS FUNCIONALIDADES ✨\n✓ Barra de ferramentas com ícones\n✓ Barra de status com contadores\n✓ Zoom in/out (Ctrl+/Ctrl-)\n✓ Busca rápida (Ctrl+F)\n✓ Tema Dark/Light\n✓ Atalhos de teclado melhorados",
+        "Sobre",
+        JOptionPane.INFORMATION_MESSAGE);
+    }
+}
